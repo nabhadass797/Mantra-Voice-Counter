@@ -25,7 +25,7 @@ input {
 }
 
 button {
-  width: 28%;
+  width: 90%;
   padding: 12px;
   margin: 5px;
   border-radius: 10px;
@@ -62,21 +62,26 @@ button {
 
 <h2>Mantra Counter</h2>
 
-<input type="text" id="mantra" placeholder="Enter Mantra">
-<input type="number" id="target" placeholder="Target (108)">
+<input type="text" id="mantra" placeholder="Enter Mantra Name">
+<input type="number" id="target" placeholder="Enter Target (108)">
 
 <p>Sensitivity: <span id="sensValue">40%</span></p>
 <input type="range" id="sensitivity" min="20" max="100" value="40" class="slider"
 oninput="updateSensitivity(this.value)">
-
+  <br>
+<h3 style="color: #FFD700;">Choose Alarm Music</h3>
 <input type="file" id="alarmFile" accept="audio/*">
 
 <br>
 
 <button onclick="start()">Start</button>
 <button onclick="stop()">Stop</button>
-<button onclick="reset()">Reset</button>
-
+<button onclick="reset()">Save</button>
+<br>
+  <a href="https://gurunabhadasshistory.blogspot.com/p/blog-page.html" style="color:#FFD700; text-decoration:none; font-weight:bold;">
+  How to Use ?
+  </a>
+  <br>
 <div class="box">
   <div id="showMantra">-</div>
   <div class="big">Count: <span id="count">0</span></div>
