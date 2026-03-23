@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mantra Counter</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #000;
+  color: #FFD700;
+  text-align: center;
+}
+
+.container { padding: 15px; }
+
+input {
+  width: 85%;
+  padding: 12px;
+  margin: 6px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+}
+
+button {
+  width: 28%;
+  padding: 12px;
+  margin: 5px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  background: #FFD700;
+  color: black;
+  font-weight: bold;
+}
+
+.box {
+  margin-top: 15px;
+  padding: 15px;
+  border-top: 2px solid #FFD700;
+}
+
+.big { font-size: 28px; }
+
+.history {
+  margin-top: 20px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.slider {
+  width: 80%;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Mantra Counter</h2>
+
+<input type="text" id="mantra" placeholder="Enter Mantra">
+<input type="number" id="target" placeholder="Target (108)">
+
+<p>Sensitivity: <span id="sensValue">40%</span></p>
+<input type="range" id="sensitivity" min="20" max="100" value="40" class="slider"
+oninput="updateSensitivity(this.value)">
+
+<input type="file" id="alarmFile" accept="audio/*">
+
+<br>
+
+<button onclick="start()">Start</button>
+<button onclick="stop()">Stop</button>
+<button onclick="reset()">Reset</button>
+
+<div class="box">
+  <div id="showMantra">-</div>
+  <div class="big">Count: <span id="count">0</span></div>
+  <div>Time: <span id="time">0</span> sec</div>
+</div>
+
+<div class="history" id="history"></div>
+
+</div>
+
+<script>
+let count = 0;
+let time = 0;
+let listening = false;
+let speaking = false;
+let lastVoiceTime = 0;
+
+let timerInterval;
+let alarmAudio = null;
+
+let NOISE_THRESHOLD = 30;
+let SPEECH_THRESHOLD = 55;
+let SILENCE_GAP = 1200;
+
+// sensitivity update
+function updateSensitivity(val) {
+  document.getElementById("sensValue").innerText = val + "%";
+  SPEECH_THRESHOLD = val;
+}
+
+// history load
+function loadHistory() {
+  let data = JSON.parse(localStorage.getItem("history")) || [];
+  let html = "<h3>History</h3>";
+
+  data.slice().reverse().forEach(item => {
+    html += `
+      <div>
+        <b>${item.mantra}</b><br>
+        Count: ${item.count} | Time: ${item.time}s<br>
+        Date: ${item.date}
+        <hr>
+      </div>
+    `;
+  });
+
+  document.getElementById("history").innerHTML = html;
+}
+
+loadHistory();
+
+function playAlarm() {
+  if (alarmAudio) {
+    alarmAudio.loop = true;
+    alarmAudio.play();
+  }
+}
+
+function stopSystem() {
+  listening = false;
+  clearInterval(timerInterval);
+}
+
+// start
+function start() {
+
+  listening = true;
+  speaking = false;
+
+  document.getElementById("showMantra").innerText =
+    document.getElementById("mantra").value || "-";
+
+  timerInterval = setInterval(() => {
+    time++;
+    document.getElementById("time").innerText = time;
+  }, 1000);
+
+  let file = document.getElementById("alarmFile").files[0];
+  if (file) {
+    alarmAudio = new Audio(URL.createObjectURL(file));
+  }
+
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+
+      const audioContext = new AudioContext();
+      const mic = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+
+      analyser.fftSize = 256;
+      mic.connect(analyser);
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      function detect() {
+
+        if (!listening) return;
+
+        analyser.getByteFrequencyData(data);
+
+        let volume = data.reduce((a, b) => a + b) / data.length;
+        let now = Date.now();
+
+        // silence
+        if (volume < NOISE_THRESHOLD) {
+          if (speaking && now - lastVoiceTime > SILENCE_GAP) {
+
+            count++;
+            document.getElementById("count").innerText = count;
+
+            let target = document.getElementById("target").value;
+
+            // target reached
+            if (count == target && target != "") {
+              playAlarm();
+              stopSystem(); // stop everything
+              return;
+            }
+
+            if (navigator.vibrate) navigator.vibrate(200);
+
+            speaking = false;
+          }
+        }
+
+        // speech detect
+        if (volume > SPEECH_THRESHOLD) {
+          speaking = true;
+          lastVoiceTime = now;
+        }
+
+        requestAnimationFrame(detect);
+      }
+
+      detect();
+    });
+}
+
+// stop
+function stop() {
+  stopSystem();
+  if (alarmAudio) {
+    alarmAudio.pause();
+    alarmAudio.currentTime = 0;
+  }
+}
+
+// reset
+function reset() {
+
+  let record = {
+    mantra: document.getElementById("mantra").value || "-",
+    count: count,
+    time: time,
+    date: new Date().toLocaleString()
+  };
+
+  let history = JSON.parse(localStorage.getItem("history")) || [];
+  history.push(record);
+  localStorage.setItem("history", JSON.stringify(history));
+
+  count = 0;
+  time = 0;
+
+  document.getElementById("count").innerText = 0;
+  document.getElementById("time").innerText = 0;
+
+  loadHistory();
+}
+</script>
+
+</body>
+</html>
